@@ -4,7 +4,7 @@
 
 Turn any existing CCTV camera into a real-time safety monitor that flags workers entering danger zones.
 
-**Decision-layer demo video (simulated detections, `--demo` mode, not PipeGen output):** [https://drive.google.com/drive/folders/1eSH-QQsblcorL2dlwEHSrFwNV9hQpxrl?usp=sharing]
+**Decision-layer demo video (simulated detections, `--demo` mode, not PipeGen output):** [Watch on Google Drive](https://drive.google.com/drive/folders/1eSH-QQsblcorL2dlwEHSrFwNV9hQpxrl?usp=sharing)
 
 > **Status:** the decision layer, dashboard and MQTT alerting are built and tested in simulation mode. The PipeGen stages (Pipeline IR, TensorRT compile, live run) have not been run yet because no NVIDIA GPU machine was available before the deadline; `pipegen_export/` and `evidence/` will be filled once they are. No TensorRT results are claimed.
 
