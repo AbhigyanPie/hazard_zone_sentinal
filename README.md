@@ -80,4 +80,4 @@ Laptop and ESP32 must be on the same 2.4 GHz Wi-Fi (a phone hotspot works).
 | `firmgen/` | ESP32 alarm node PRD and FirmGen project (Closed Loop) |
 | `evidence/` | Screenshots, reports, sample payload, incident log |
 | `SUBMISSION.md` | Project description for the submission form |
-# hazard_zone_sentinal
+
