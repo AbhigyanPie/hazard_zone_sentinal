@@ -1,8 +1,12 @@
 # Hazard Zone Sentinel
 
-**Track A — PipeGen (Perception)** · Workplace Safety Sentinel · Bonus: Edge Optimization (INT8), optional Closed Loop with a FirmGen ESP32 alarm node
+**Track A — PipeGen (Perception)** · Workplace Safety Sentinel · Targeted bonus: Edge Optimization (INT8) · Optional extension: Closed Loop with a FirmGen ESP32 alarm node
 
 Turn any existing CCTV camera into a real-time safety monitor that flags workers entering danger zones.
+
+**Decision-layer demo video (simulated detections, `--demo` mode, not PipeGen output):** [https://drive.google.com/drive/folders/1eSH-QQsblcorL2dlwEHSrFwNV9hQpxrl?usp=sharing]
+
+> **Status:** the decision layer, dashboard and MQTT alerting are built and tested in simulation mode. The PipeGen stages (Pipeline IR, TensorRT compile, live run) have not been run yet because no NVIDIA GPU machine was available before the deadline; `pipegen_export/` and `evidence/` will be filled once they are. No TensorRT results are claimed.
 
 ## Problem
 On factory floors, in warehouses and on construction sites, workers walk into hazard zones (forklift lanes, robotic cells, open pits) and nobody notices until something goes wrong. CCTV exists, but no one watches it live.
@@ -17,13 +21,13 @@ PipeGen DeepStream app ── TensorRT person detector (FP16 / INT8) + tracker  
         ▼
 sentinel.py ── foot point inside hazard polygon? one incident per track         DECIDE
         ├──► incidents.jsonl          (who, when, dwell time)
-        ├──► live dashboard :8080     (zone, boxes, incident log)
+        ├──► live dashboard           (zone, boxes, incident log)
         └──► MQTT  sentinel/alerts  ──► ESP32 alarm node (FirmGen): LED + buzzer  ACT
 ```
 
-PipeGen is load-bearing: every detection, track ID and timestamp the system acts on comes from the TensorRT engine PipeGen compiled and the DeepStream app it generated.
+PipeGen is load-bearing: every detection, track ID and timestamp the system acts on comes from the TensorRT engine PipeGen compiles and the DeepStream app it generates. `sentinel.py` has no other input.
 
-## PipeGen pipeline
+## PipeGen pipeline (specification)
 | Stage | Choice |
 |---|---|
 | Input | Site CCTV video at 1920x1080 (or USB camera) |
@@ -32,27 +36,27 @@ PipeGen is load-bearing: every detection, track ID and timestamp the system acts
 | Precision | FP16 baseline, INT8 for Edge Optimization |
 | Outputs | MQTT detection feed, JSON metadata file, on-screen display |
 
-Build steps, the exact Requirement prompt and the screenshot checklist are in [`prompts/PIPEGEN_STEPS.md`](prompts/PIPEGEN_STEPS.md). Results are in [`SUBMISSION.md`](SUBMISSION.md); screenshots and logs are in [`evidence/`](evidence/).
+The exact Requirement prompt and stage-by-stage build guide are in [`prompts/PIPEGEN_STEPS.md`](prompts/PIPEGEN_STEPS.md). The project write-up is in [`SUBMISSION.md`](SUBMISSION.md).
 
 ## Run
 ```bash
 pip install paho-mqtt
 sudo apt install -y mosquitto mosquitto-clients
 
-# 1. PipeGen-generated DeepStream app
+# 1. PipeGen-generated DeepStream app (needs an NVIDIA GPU, Linux)
 cd pipegen_export && ./run.sh
 
-# 2. Decision layer + dashboard (http://localhost:8080)
+# 2. Decision layer + dashboard (prints the dashboard URL; 8080, or 8765+ if 8080 is taken)
 python3 sentinel.py --mqtt localhost --topic 'pipegen/#' --size 1920x1080 \
   --zone "0.55,0.35;0.95,0.35;0.95,0.95;0.55,0.95"
 
 # fallback: read PipeGen's JSON metadata file instead of MQTT
 python3 sentinel.py --json pipegen_export/<metadata>.json --size 1920x1080
 
-# no GPU: simulated detections (UI and ESP32 test only)
-python3 sentinel.py --demo --mqtt localhost
+# no GPU: simulated detections (works on Windows, macOS, Linux)
+python3 sentinel.py --demo
 ```
-`--zone` is a normalized polygon (0–1 for x and y). `--size` must match the pipeline's output resolution.
+`--zone` is a normalized polygon (0–1 for x and y). `--size` must match the pipeline's output resolution. Inside WSL, add `--bind 0.0.0.0` to open the dashboard from the Windows browser.
 
 Alert payload on `sentinel/alerts`:
 ```json
@@ -60,24 +64,26 @@ Alert payload on `sentinel/alerts`:
  "time": "2026-10-16T21:42:10", "dwell_s": 0.0, "active": 1}
 ```
 
-## Closed Loop (optional): FirmGen ESP32 alarm node
-[`firmgen/Sentinel_Alarm_Node_PRD.pdf`](firmgen/) is the PRD to upload in FirmGen (I have a document). The node joins Wi-Fi, subscribes to `sentinel/alerts`, blinks the warning LED and pulses a buzzer while `active > 0`, and shows a slow blink when offline.
+## Closed Loop extension (optional): FirmGen ESP32 alarm node
+[`firmgen/Sentinel_Alarm_Node_PRD.pdf`](firmgen/) is a FirmGen-ready PRD. The node joins Wi-Fi, subscribes to `sentinel/alerts`, blinks a warning LED and pulses a buzzer while `active > 0`, and shows a slow blink when offline.
 
-Let the ESP32 reach the broker on your laptop:
+Let the ESP32 reach the broker on the laptop:
 ```bash
 printf "listener 1883 0.0.0.0\nallow_anonymous true\n" | sudo tee /etc/mosquitto/conf.d/lan.conf
 sudo systemctl restart mosquitto
-hostname -I   # put this IP in the PRD config as the broker host
+hostname -I   # use this IP as the broker host in the PRD config
 ```
 Laptop and ESP32 must be on the same 2.4 GHz Wi-Fi (a phone hotspot works).
 
 ## Repo
 | Path | Contents |
 |---|---|
-| `pipegen_export/` | PipeGen export: DeepStream app, configs, `run.sh`, engine reports |
 | `sentinel.py` | Decision, incident log, MQTT alert republish, dashboard |
 | `prompts/` | PipeGen Requirement prompt and stage guide |
-| `firmgen/` | ESP32 alarm node PRD and FirmGen project (Closed Loop) |
-| `evidence/` | Screenshots, reports, sample payload, incident log |
-| `SUBMISSION.md` | Project description for the submission form |
+| `firmgen/` | ESP32 alarm node PRD (Closed Loop extension) |
+| `pipegen_export/` | Placeholder for the PipeGen export (DeepStream app, configs, `run.sh`, engine reports) |
+| `evidence/` | Placeholder for PipeGen screenshots and reports, with the checklist |
+| `SUBMISSION.md` | Project write-up |
 
+## Stack
+DeepStream + TensorRT (generated by PipeGen), MQTT (Mosquitto), Python (paho-mqtt), HTML/JS dashboard.
